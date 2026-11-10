@@ -1,0 +1,16 @@
+[build-system]
+requires=["hatchling>=1.27,<2"]
+build-backend="hatchling.build"
+[project]
+name="event-driven-ai-processing-reference"
+version="0.1.0"
+requires-python=">=3.12,<3.13"
+dependencies=[]
+[project.scripts]
+event-processing="event_processing.cli:main"
+[dependency-groups]
+dev=["pytest>=8.3,<9"]
+[tool.hatch.build.targets.wheel]
+packages=["src/event_processing"]
+[tool.pytest.ini_options]
+testpaths=["tests"]
