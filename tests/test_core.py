@@ -13,3 +13,11 @@ def test_restart_recovery_and_tenant_scoped_replay(tmp_path):
  db=tmp_path/'q.db';Queue(db).enqueue(ev());assert asyncio.run(Worker(Queue(db)).drain())==1
  import pytest
  with pytest.raises(ValueError):Queue(db).replay('tenant-b','e1')
+def test_lease_expiry_recovers_claim_and_transient_succeeds(tmp_path):
+ q=Queue(tmp_path/'q.db');q.enqueue(ev(mode='transient'));first=q.claim('crashed',lease_seconds=-1);assert first.attempts==1
+ assert asyncio.run(Worker(q).drain())==1 and q.state('tenant-a','e1')['status']=='COMPLETED'
+def test_duplicate_claim_and_trusted_cli_tenant(tmp_path):
+ q=Queue(tmp_path/'q.db');q.enqueue(ev());assert q.claim('one');assert q.claim('two') is None
+ from event_processing.cli import trusted_tenant
+ import pytest
+ with pytest.raises(PermissionError):trusted_tenant('tenant-b')
