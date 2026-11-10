@@ -27,5 +27,7 @@ def test_claim_fencing_and_lease_expiry_exhaustion(tmp_path):
  assert a.claim_token!=b.claim_token
  with pytest.raises(RuntimeError):q.complete(a,{'bad':'stale'})
  q.complete(b,{'ok':True});assert q.state('tenant-a','e1')['status']=='COMPLETED'
+ with pytest.raises(RuntimeError):q.fail(a)
+ assert q.state('tenant-a','e1')['status']=='COMPLETED'
  q.enqueue(ev(ident='poison',mode='poison'));first=q.claim('a',lease_seconds=-1,max_attempts=2);second=q.claim('b',lease_seconds=-1,max_attempts=2);assert first and second
  assert q.claim('c',max_attempts=2) is None and q.state('tenant-a','poison')['status']=='DLQ'

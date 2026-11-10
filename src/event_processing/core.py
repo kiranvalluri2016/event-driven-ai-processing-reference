@@ -27,8 +27,8 @@ class Queue:
   if not row or row['status']!='PROCESSING' or row['claim_token']!=e.claim_token:c.rollback();c.close();raise RuntimeError('stale claim')
   existing=c.execute('SELECT 1 FROM results WHERE tenant=? AND event_id=?',(e.tenant_id,e.event_id)).fetchone();c.execute('INSERT OR IGNORE INTO results VALUES(?,?,?)',(e.tenant_id,e.event_id,json.dumps(result,sort_keys=True)));c.execute("UPDATE events SET status='COMPLETED' WHERE tenant=? AND event_id=?",(e.tenant_id,e.event_id));self._audit(c,e,'IDEMPOTENT_SKIP' if existing else 'COMPLETED');c.commit();c.close()
  def fail(self,e,max_attempts=3):
-  c=self._c();row=c.execute('SELECT attempts,status,claim_token FROM events WHERE tenant=? AND event_id=?',(e.tenant_id,e.event_id)).fetchone()
-  if not row or row['status']!='PROCESSING' or row['claim_token']!=e.claim_token:c.close();raise RuntimeError('stale claim')
+  c=self._c();c.execute('BEGIN IMMEDIATE');row=c.execute('SELECT attempts,status,claim_token FROM events WHERE tenant=? AND event_id=?',(e.tenant_id,e.event_id)).fetchone()
+  if not row or row['status']!='PROCESSING' or row['claim_token']!=e.claim_token:c.rollback();c.close();raise RuntimeError('stale claim')
   attempt=row['attempts'];status='DLQ' if attempt>=max_attempts else 'RETRY';at=iso(now()+timedelta(seconds=2**attempt));c.execute('UPDATE events SET status=?,available_at=?,last_error=? WHERE tenant=? AND event_id=?',(status,at,'synthetic processor failure',e.tenant_id,e.event_id));self._audit(c,e,'DEAD_LETTER' if status=='DLQ' else 'RETRY_SCHEDULED',{'attempt':attempt});c.commit();c.close()
  def replay(self,tenant,event_id):
   c=self._c();row=c.execute('SELECT * FROM events WHERE tenant=? AND event_id=? AND status="DLQ"',(tenant,event_id)).fetchone()
